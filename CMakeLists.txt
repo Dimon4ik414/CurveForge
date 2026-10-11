@@ -30,4 +30,5 @@ add_executable(cadex_curves
 
 target_include_directories(cadex_curves PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+find_package(raylib REQUIRED)
 target_link_libraries(cadex_curves PRIVATE raylib)
