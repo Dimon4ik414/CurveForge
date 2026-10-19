@@ -2,6 +2,9 @@
 #include "curve/Curve.h"
 #include "curve/IRound.h"
 #include "curve/CurveFactory.h"
+//#include "shapes/Ellipse.h"
+//#include "shapes/Circle.h"
+//#include "shapes/Helix.h"
 
 #include <array>
 #include <vector>
@@ -15,7 +18,6 @@
 
 namespace { constexpr double P = 3.14159265358979323846; }
 
-// --- утилиты отрисовки ---
 
 static Vector3 toRay(const std::array<double, 3>& p) {
     Vector3 v;
@@ -26,10 +28,13 @@ static Vector3 toRay(const std::array<double, 3>& p) {
 }
 
 
-static void drawCurve(const Curve& c, Color color, int steps = 256) {
+static void drawCurve(const Curve& c, Color color, double turns = 1.0, int steps = 256) {
+
+    double t_end = turns * 2.0 * P;
     Vector3 prev = toRay(c.point(0.0));
+
     for (int i = 1; i <= steps; ++i) {
-        double t = 2.0 * P * i / steps;
+        double t = t_end * i / steps;
         Vector3 cur = toRay(c.point(t));
         DrawLine3D(prev, cur, color);
         prev = cur;
@@ -61,13 +66,16 @@ int main() {
    
     std::mt19937 gen(std::random_device{}());
     std::vector<std::shared_ptr<Curve>> curves;
-    for (int i = 0; i < 1; ++i)
+    for (int i = 0; i <1; ++i)
+
         curves.push_back(CurveFactory::createRandom(gen));
+        //curves.push_back(std::make_shared<Ellipse>(3.0, 1.5));
+        //curves.push_back(std::make_shared<Helix>(3.0,1.5));
+        //curves.push_back(std::make_shared<Circle>(3.0,1.5));
 
-
-    std::cout << "=== Curves at t = PI/4 ===\n";
-    for (const auto& c : curves) c->printAt(PI / 4.0);
-    std::cout << "===========================\n";
+    std::cout << "Curves at t = PI/4\n";
+    for (const auto& c : curves) c->printAt(P / 4.0);
+    
 
  
     std::vector<IRound*> rounds;
@@ -83,42 +91,41 @@ int main() {
     double sum = std::accumulate(rounds.begin(), rounds.end(), 0.0,
         [](double acc, IRound* r) { return acc + r->radius(); });
 
-    std::cout << "Total radii of round curves: " << sum << "\n";
+    std::cout << "Total radius of round curves: " << sum << "\n";
 
     InitWindow(1000, 700, "CADEX - 3D curves");
     SetTargetFPS(60);
 
     Camera3D camera = { 0 };
     camera.position = Vector3{ 12.0f, -12.0f, 10.0f };
-    camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
+    camera.target = Vector3{ 0.0f, 0.0f, 2.0f };
     camera.up = Vector3{ 0.0f, 0.0f, 1.0f };  
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
     while (!WindowShouldClose()) {
         UpdateCamera(&camera, CAMERA_ORBITAL);
+       
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
         BeginMode3D(camera);
-        DrawGrid(20, 1.0f);
 
-        // Все кривые — через базовый Curve&.
-        for (const auto& c : curves)
-            drawCurve(*c, DARKBLUE);
+        for (const auto& c : curves) {
+   
+                drawCurve(*c, DARKBLUE, 3.0);
+        }
 
-        // Точка + производная при t = PI/4.
         for (const auto& c : curves)
             drawTangent(*c, MAROON);
         EndMode3D();
-
-        DrawText(TextFormat("Total radii: %.3f", sum), 10, 10, 20, DARKGREEN);
-        DrawText(TextFormat("Curves: %d  |  Rounds: %d",
+        
+        DrawText(TextFormat("Total radius: %.3f", sum), 10, 10, 20, DARKGREEN);
+        DrawText(TextFormat("Curves: %d",
             static_cast<int>(curves.size()),
             static_cast<int>(rounds.size())),
             10, 35, 20, DARKGRAY);
-        DrawText("Mouse: orbit | Wheel: zoom", 10, 60, 20, GRAY);
 
         EndDrawing();
     }
