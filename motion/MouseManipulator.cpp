@@ -89,3 +89,34 @@ void motion::MouseManipulator::update(Transform& transform, const Camera3D& came
     transform.rotY = wrapAngle(transform.rotY);
     transform.rotZ = wrapAngle(transform.rotZ);
 }
+
+void motion::MouseManipulator::zoomCamera(Camera3D& camera) const
+{
+    const float wheel = GetMouseWheelMove();
+
+    if (wheel == 0.0f)
+    {
+        return;
+    }
+
+    const Vector3 forward = normalize(subtract(camera.target, camera.position));
+
+    float distance = 0.0f;
+    distance += (camera.position.x - camera.target.x) * (camera.position.x - camera.target.x);
+    distance += (camera.position.y - camera.target.y) * (camera.position.y - camera.target.y);
+    distance += (camera.position.z - camera.target.z) * (camera.position.z - camera.target.z);
+    distance = sqrtf(distance);
+
+    // Колесо вверх (wheel > 0) - приближаемся, вниз - отдаляемся.
+    distance -= wheel * zoomStep_;
+
+    if (distance < minDistance_)
+    {
+        distance = minDistance_;
+    }
+
+    // Новая позиция: на луче взгляда на нужном расстоянии от цели.
+    camera.position.x = camera.target.x - forward.x * distance;
+    camera.position.y = camera.target.y - forward.y * distance;
+    camera.position.z = camera.target.z - forward.z * distance;
+}

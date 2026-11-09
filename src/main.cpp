@@ -123,6 +123,7 @@ int main() {
         // а мышью управляем самой фигурой.
         // UpdateCamera(&camera, CAMERA_ORBITAL);
         manipulator.update(transform, camera);
+        manipulator.zoomCamera(camera);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -148,7 +149,7 @@ int main() {
             10, 35, 20, DARKGRAY);
 
         // Подсказка по управлению — временная, до появления меню.
-        DrawText("LMB: rotate   Shift+LMB: roll   RMB: move",
+        DrawText("LMB: rotate   Shift+LMB: roll   RMB: move   Wheel: zoom",
             10, GetScreenHeight() - 28, 18, GRAY);
 
         EndDrawing();
