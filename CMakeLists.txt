@@ -18,6 +18,9 @@ add_executable(cadex_curves
     shapes/Ellipse.h
     shapes/Circle.h
     shapes/Helix.h
+    motion/ObjectTransform.h
+    motion/MouseManipulator.h
+    motion/MouseManipulator.cpp
 )
 
 

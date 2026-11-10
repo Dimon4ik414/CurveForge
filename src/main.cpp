@@ -2,6 +2,8 @@
 #include "curve/Curve.h"
 #include "curve/IRound.h"
 #include "curve/CurveFactory.h"
+#include "motion/ObjectTransform.h"
+#include "motion/MouseManipulator.h"
 //#include "shapes/Ellipse.h"
 //#include "shapes/Circle.h"
 //#include "shapes/Helix.h"
@@ -16,7 +18,13 @@
 #include <cmath>
 
 
-namespace { constexpr double P = 3.14159265358979323846; }
+namespace
+{
+    constexpr double P = 3.14159265358979323846;
+
+    // Сколько витков рисуем у кривой (по ним же считаем центр фигуры).
+    constexpr double CURVE_TURNS = 3.0;
+}
 
 
 static Vector3 toRay(const std::array<double, 3>& p) {
@@ -73,6 +81,13 @@ int main() {
         //curves.push_back(std::make_shared<Helix>(3.0,1.5));
         //curves.push_back(std::make_shared<Circle>(3.0,1.5));
 
+    // Трансформация фигуры: двигаем и вращаем саму фигуру,
+    // камера при этом остаётся статичной.
+    motion::Transform transform;
+    transform.pivot = motion::curveCenter(*curves.front(), CURVE_TURNS);
+
+    motion::MouseManipulator manipulator;
+
     std::cout << "Curves at t = PI/4\n";
     for (const auto& c : curves) c->printAt(P / 4.0);
     
@@ -104,21 +119,27 @@ int main() {
     camera.projection = CAMERA_PERSPECTIVE;
 
     while (!WindowShouldClose()) {
-        UpdateCamera(&camera, CAMERA_ORBITAL);
-       
+        // Автоповорот камеры отключён: камера статична,
+        // а мышью управляем самой фигурой.
+        // UpdateCamera(&camera, CAMERA_ORBITAL);
+        manipulator.update(transform, camera);
+        manipulator.zoomCamera(camera);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
         BeginMode3D(camera);
 
+        transform.push();
         for (const auto& c : curves) {
    
-                drawCurve(*c, DARKBLUE, 3.0);
+                drawCurve(*c, DARKBLUE, CURVE_TURNS);
         }
 
         for (const auto& c : curves)
             drawTangent(*c, MAROON);
+        transform.pop();
+
         EndMode3D();
         
         DrawText(TextFormat("Total radius: %.3f", sum), 10, 10, 20, DARKGREEN);
@@ -126,6 +147,10 @@ int main() {
             static_cast<int>(curves.size()),
             static_cast<int>(rounds.size())),
             10, 35, 20, DARKGRAY);
+
+        // Подсказка по управлению — временная, до появления меню.
+        DrawText("LMB: rotate   Shift+LMB: roll   RMB: move   Wheel: zoom",
+            10, GetScreenHeight() - 28, 18, GRAY);
 
         EndDrawing();
     }
