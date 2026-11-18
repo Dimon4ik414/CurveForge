@@ -30,7 +30,7 @@ namespace
         return Vector3{ v.x / len, v.y / len, v.z / len };
     }
 
-    // Держит углы в диапазоне (-180, 180], чтобы значение не росло бесконечно.
+
     float wrapAngle(float angle)
     {
         float result = fmodf(angle, 360.0f);
@@ -58,7 +58,7 @@ void motion::MouseManipulator::update(Transform& transform, const Camera3D& came
         return;
     }
 
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
     {
         if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
         {
@@ -70,13 +70,13 @@ void motion::MouseManipulator::update(Transform& transform, const Camera3D& came
             transform.rotX += delta.y * rotateSpeed_;
         }
     }
-    else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+    else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
     {
         const Vector3 forward = normalize(subtract(camera.target, camera.position));
         const Vector3 right = normalize(cross(forward, camera.up));
         const Vector3 up = normalize(cross(right, forward));
 
-        // Сдвиг в плоскости экрана: вправо - по right, вниз - против up.
+
         const float dx = delta.x * moveSpeed_;
         const float dy = delta.y * moveSpeed_;
 
@@ -107,7 +107,7 @@ void motion::MouseManipulator::zoomCamera(Camera3D& camera) const
     distance += (camera.position.z - camera.target.z) * (camera.position.z - camera.target.z);
     distance = sqrtf(distance);
 
-    // Колесо вверх (wheel > 0) - приближаемся, вниз - отдаляемся.
+   
     distance -= wheel * zoomStep_;
 
     if (distance < minDistance_)
@@ -115,7 +115,7 @@ void motion::MouseManipulator::zoomCamera(Camera3D& camera) const
         distance = minDistance_;
     }
 
-    // Новая позиция: на луче взгляда на нужном расстоянии от цели.
+    
     camera.position.x = camera.target.x - forward.x * distance;
     camera.position.y = camera.target.y - forward.y * distance;
     camera.position.z = camera.target.z - forward.z * distance;
