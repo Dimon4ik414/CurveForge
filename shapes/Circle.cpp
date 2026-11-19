@@ -2,9 +2,14 @@
 #include <cmath>
 #include <stdexcept>
 
-Circle::Circle(double r) : r_(r) {
+Circle::Circle(double r) {
+    setRadius(r);
+}
+
+void Circle::setRadius(double r) {
     if (r <= 0.0)
         throw std::invalid_argument("Circle radius must be positive");
+    r_ = r;
 }
 
 std::array<double, 3> Circle::point(double t) const {

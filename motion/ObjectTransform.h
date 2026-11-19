@@ -1,33 +1,32 @@
 #pragma once
 
 #include "raylib.h"
-#include "rlgl.h"       // rlPushMatrix(), rlTranslatef(), rlRotatef()
+#include "rlgl.h"
 #include "curve/Curve.h"
+#include "curve/CurveConfig.h"
 
 namespace motion
 {
-    // Положение и ориентация фигуры в сцене.
-    // Углы хранятся в градусах, как их принимает rlRotatef().
     struct Transform
     {
         Vector3 position = { 0.0f, 0.0f, 0.0f };
         float rotX = 0.0f;
         float rotY = 0.0f;
         float rotZ = 0.0f;
-
-        // Точка, вокруг которой вращается фигура (центр фигуры).
         Vector3 pivot = { 0.0f, 0.0f, 0.0f };
 
-        // Накладывает трансформацию на текущую матрицу.
-        // Вызывать внутри BeginMode3D(), после отрисовки обязателен pop().
+        void resetPose()
+        {
+            position = { 0.0f, 0.0f, 0.0f };
+            rotX = 0.0f;
+            rotY = 0.0f;
+            rotZ = 0.0f;
+        }
+
         void push() const
         {
             rlPushMatrix();
-
             rlTranslatef(position.x, position.y, position.z);
-
-            // Переносим начало координат в пивот, крутим вокруг него,
-            // возвращаемся обратно: так фигура вращается вокруг себя.
             rlTranslatef(pivot.x, pivot.y, pivot.z);
 
             rlRotatef(rotZ, 0.0f, 0.0f, 1.0f);
@@ -43,14 +42,9 @@ namespace motion
         }
     };
 
-    // Центр фигуры: среднее арифметическое по точкам кривой.
-    // Нужен как пивот, чтобы фигура вращалась вокруг себя,
-    // а не вокруг начала координат.
-    inline Vector3 curveCenter(const Curve& curve, double turns, int steps = 256)
+    inline Vector3 curveCenter(const Curve& curve, double turns = curve_cfg::DEFAULT_TURNS, int steps = curve_cfg::CURVE_SEGMENTS)
     {
-        constexpr double P = 3.14159265358979323846;
-
-        const double tEnd = turns * 2.0 * P;
+        const double tEnd = turns * curve_cfg::TWO_PI;
         double sx = 0.0;
         double sy = 0.0;
         double sz = 0.0;
@@ -64,7 +58,6 @@ namespace motion
         }
 
         const double n = static_cast<double>(steps + 1);
-
         return Vector3{
             static_cast<float>(sx / n),
             static_cast<float>(sy / n),

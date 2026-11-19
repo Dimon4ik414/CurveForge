@@ -1,15 +1,16 @@
 #pragma once
 #include "curve/Curve.h"
-#include "curve/IRound.h"
 
-
-class Ellipse : public Curve,public IRound {
+class Ellipse : public Curve {
 public:
-   explicit Ellipse(double rx, double ry);
+    explicit Ellipse(double rx, double ry);
 
     std::array<double, 3> point(double t) const override;
     std::array<double, 3> derivative(double t) const override;
-    double radius() const override { return rx_,ry_ ; }
+
+    double radiusX() const { return rx_; }
+    double radiusY() const { return ry_; }
+    void setRadii(double rx, double ry);
 
 private:
     double rx_;

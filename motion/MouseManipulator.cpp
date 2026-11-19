@@ -1,5 +1,4 @@
 #include "motion/MouseManipulator.h"
-
 #include <cmath>
 
 namespace
@@ -21,42 +20,23 @@ namespace
     Vector3 normalize(Vector3 v)
     {
         const float len = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
-
-        if (len < 1e-6f)
-        {
-            return v;
-        }
-
+        if (len < 1e-6f) return v;
         return Vector3{ v.x / len, v.y / len, v.z / len };
     }
-
 
     float wrapAngle(float angle)
     {
         float result = fmodf(angle, 360.0f);
-
-        if (result > 180.0f)
-        {
-            result -= 360.0f;
-        }
-
-        if (result <= -180.0f)
-        {
-            result += 360.0f;
-        }
-
+        if (result > 180.0f) result -= 360.0f;
+        if (result <= -180.0f) result += 360.0f;
         return result;
     }
 }
 
-void motion::MouseManipulator::update(Transform& transform, const Camera3D& camera) const
+void motion::MouseManipulator::update(Transform& transform, const Camera3D& camera, bool allowPlaneMove) const
 {
     const Vector2 delta = GetMouseDelta();
-
-    if ((delta.x == 0.0f) && (delta.y == 0.0f))
-    {
-        return;
-    }
+    if ((delta.x == 0.0f) && (delta.y == 0.0f)) return;
 
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
     {
@@ -70,12 +50,11 @@ void motion::MouseManipulator::update(Transform& transform, const Camera3D& came
             transform.rotX += delta.y * rotateSpeed_;
         }
     }
-    else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    else if (allowPlaneMove && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
     {
         const Vector3 forward = normalize(subtract(camera.target, camera.position));
         const Vector3 right = normalize(cross(forward, camera.up));
         const Vector3 up = normalize(cross(right, forward));
-
 
         const float dx = delta.x * moveSpeed_;
         const float dy = delta.y * moveSpeed_;
@@ -90,32 +69,22 @@ void motion::MouseManipulator::update(Transform& transform, const Camera3D& came
     transform.rotZ = wrapAngle(transform.rotZ);
 }
 
-void motion::MouseManipulator::zoomCamera(Camera3D& camera) const
+void motion::MouseManipulator::zoomCamera(Camera3D& camera, float minDist, float maxDist) const
 {
     const float wheel = GetMouseWheelMove();
-
-    if (wheel == 0.0f)
-    {
-        return;
-    }
+    if (wheel == 0.0f) return;
 
     const Vector3 forward = normalize(subtract(camera.target, camera.position));
 
-    float distance = 0.0f;
-    distance += (camera.position.x - camera.target.x) * (camera.position.x - camera.target.x);
-    distance += (camera.position.y - camera.target.y) * (camera.position.y - camera.target.y);
-    distance += (camera.position.z - camera.target.z) * (camera.position.z - camera.target.z);
-    distance = sqrtf(distance);
+    float dx = camera.position.x - camera.target.x;
+    float dy = camera.position.y - camera.target.y;
+    float dz = camera.position.z - camera.target.z;
+    float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
-   
     distance -= wheel * zoomStep_;
+    if (distance < minDist) distance = minDist;
+    if (distance > maxDist) distance = maxDist;
 
-    if (distance < minDistance_)
-    {
-        distance = minDistance_;
-    }
-
-    
     camera.position.x = camera.target.x - forward.x * distance;
     camera.position.y = camera.target.y - forward.y * distance;
     camera.position.z = camera.target.z - forward.z * distance;

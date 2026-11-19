@@ -12,6 +12,7 @@ add_executable(cadex_curves
     curve/Curve.h
     curve/CurveFactory.h
     curve/IRound.h
+    curve/CurveConfig.h 
     shapes/Ellipse.cpp
     shapes/Circle.cpp
     shapes/Helix.cpp
@@ -21,6 +22,8 @@ add_executable(cadex_curves
     motion/ObjectTransform.h
     motion/MouseManipulator.h
     motion/MouseManipulator.cpp
+    scene/SceneManager.cpp
+    scene/SceneManager.h
 )
 
 

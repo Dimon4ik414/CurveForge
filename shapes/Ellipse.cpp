@@ -2,9 +2,15 @@
 #include <cmath>
 #include <stdexcept>
 
-Ellipse::Ellipse(double rx, double ry) : rx_(rx), ry_(ry) {
+Ellipse::Ellipse(double rx, double ry) {
+    setRadii(rx, ry);
+}
+
+void Ellipse::setRadii(double rx, double ry) {
     if (rx <= 0.0 || ry <= 0.0)
         throw std::invalid_argument("Ellipse radii must be positive");
+    rx_ = rx;
+    ry_ = ry;
 }
 
 std::array<double, 3> Ellipse::point(double t) const {
