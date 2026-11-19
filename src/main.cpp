@@ -94,7 +94,7 @@ static void drawGridWithAxes(int halfCells, float cellSize, AxisLock active, int
     DrawSphere(Vector3{ corner, corner,  extent }, 0.1f, axisZ);
 }
 
-// ---------- Камера ----------
+// ---------- Камера (Управление как в Blender) ----------
 struct OrbitCamera {
     Camera3D cam{};
     float yaw = 45.0f;
@@ -128,23 +128,29 @@ struct OrbitCamera {
     void update() {
         const bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
 
-        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) && shift) {
+        // ВРАЩЕНИЕ И ПАНОРАМИРОВАНИЕ КАМЕРЫ (MMB)
+        if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
             Vector2 d = GetMouseDelta();
-            yaw += d.x * 0.4f;
-            pitch -= d.y * 0.4f;
-        }
-        else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
-            Vector2 d = GetMouseDelta();
-            if (d.x != 0 || d.y != 0) {
-                Vector3 forward = Vector3Normalize(Vector3Subtract(target, cam.position));
-                Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, cam.up));
-                Vector3 up = Vector3Normalize(Vector3CrossProduct(right, forward));
-                float s = 0.003f * dist;
-                target = Vector3Add(target, Vector3Scale(right, -d.x * s));
-                target = Vector3Add(target, Vector3Scale(up, d.y * s));
+
+            if (shift) {
+                // Shift + MMB: Панорамирование (сдвиг сцены)
+                if (d.x != 0 || d.y != 0) {
+                    Vector3 forward = Vector3Normalize(Vector3Subtract(target, cam.position));
+                    Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, cam.up));
+                    Vector3 up = Vector3Normalize(Vector3CrossProduct(right, forward));
+                    float s = 0.003f * dist;
+                    target = Vector3Add(target, Vector3Scale(right, -d.x * s));
+                    target = Vector3Add(target, Vector3Scale(up, d.y * s));
+                }
+            }
+            else {
+                // Просто MMB: Вращение камеры (орбита)
+                yaw += d.x * 0.4f;
+                pitch -= d.y * 0.4f;
             }
         }
 
+        // ЗУМ: Прокрутка колёсика
         float wheel = GetMouseWheelMove();
         if (wheel != 0.0f) {
             dist -= wheel * 5.0f;
@@ -181,16 +187,15 @@ static void clampToGrid(motion::Transform& transform, float extent, const Curve&
     float minY = 1e9f, maxY = -1e9f;
     float minZ = 1e9f, maxZ = -1e9f;
 
-    // Считаем локальные габариты фигуры
+    // Считаем локальные габариты фигуры (с учетом 3 витков)
     for (int i = 0; i <= 128; ++i) {
-        auto p = curve.point(2.0 * P * i / 128.0);
+        auto p = curve.point(CURVE_TURNS * 2.0 * P * i / 128.0);
         minX = std::min(minX, (float)p[0]); maxX = std::max(maxX, (float)p[0]);
         minY = std::min(minY, (float)p[1]); maxY = std::max(maxY, (float)p[1]);
         minZ = std::min(minZ, (float)p[2]); maxZ = std::max(maxZ, (float)p[2]);
     }
 
     // ВАЖНО: ограничиваем не центр, а реальные края фигуры
-    // Например, если minZ = 0 и maxZ = 0 (плоская фигура), то floor и ceiling для позиции Z будут -extent и +extent
     float minPosX = -extent - minX;
     float maxPosX = extent - maxX;
     float minPosY = -extent - minY;
@@ -203,8 +208,6 @@ static void clampToGrid(motion::Transform& transform, float extent, const Curve&
     if (transform.position.x > maxPosX) transform.position.x = maxPosX;
     if (transform.position.y < minPosY) transform.position.y = minPosY;
     if (transform.position.y > maxPosY) transform.position.y = maxPosY;
-
-    // Для Z: пол в самом низу (-extent), потолок на +extent
     if (transform.position.z < minPosZ) transform.position.z = minPosZ;
     if (transform.position.z > maxPosZ) transform.position.z = maxPosZ;
 }
@@ -216,14 +219,22 @@ int main() {
     const float EXTENT = GRID_HALF * GRID_CELL;   // 20.0
 
     std::mt19937 gen(std::random_device{}());
-    std::uniform_real_distribution<double> rdist(EXTENT * 0.1, EXTENT * 0.3);
+
+    // Ограничиваем радиус спирали, чтобы она влезала в сетку
+    std::uniform_real_distribution<double> rdist(2.0, 6.0);
 
     std::vector<std::shared_ptr<Curve>> curves;
     std::uniform_int_distribution<int> typeDist(0, 2);
     switch (typeDist(gen)) {
     case 0: curves.push_back(std::make_shared<Circle>(rdist(gen))); break;
     case 1: curves.push_back(std::make_shared<Ellipse>(rdist(gen), rdist(gen))); break;
-    default: curves.push_back(std::make_shared<Helix>(rdist(gen), rdist(gen) * 2.0)); break;
+    default: {
+        // Для спирали задаем шаг так, чтобы 3 витка влезли в высоту сетки
+        double r = rdist(gen);
+        double step = (EXTENT * 1.5) / CURVE_TURNS;
+        curves.push_back(std::make_shared<Helix>(r, step));
+        break;
+    }
     }
 
     motion::Transform transform;
@@ -259,7 +270,13 @@ int main() {
     while (!WindowShouldClose()) {
         axis = updateAxisLock();
 
-        if (axis == AxisLock::None && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+        // ПЕРЕМЕЩЕНИЕ ФИГУРЫ: Левая кнопка мыши (ЛКМ)
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            manipulator.update(transform, orbit.cam);
+        }
+
+        // ВРАЩЕНИЕ ФИГУРЫ: Правая кнопка мыши (ПКМ)
+        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
             manipulator.update(transform, orbit.cam);
         }
 
@@ -284,7 +301,9 @@ int main() {
 
         DrawText(TextFormat("Total radius: %.3f", sum), 10, 10, 20, DARKGREEN);
         DrawText(TextFormat("Curves: %d", (int)curves.size(), (int)rounds.size()), 10, 35, 20, DARKGRAY);
-        DrawText("LMB: rotate   X/Y/Z + LMB: move   RMB: pan   Shift+RMB: orbit   Wheel: zoom", 10, GetScreenHeight() - 28, 16, GRAY);
+
+        // Обновленная подсказка
+        DrawText("LMB: move obj   RMB: rotate obj   X/Y/Z + LMB: move axis   MMB: orbit cam   Wheel: zoom", 10, GetScreenHeight() - 28, 16, GRAY);
 
         EndDrawing();
     }
