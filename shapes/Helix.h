@@ -1,8 +1,9 @@
 #pragma once
 #include "curve/Curve.h"
 #include "curve/CurveConfig.h"
+#include "curve/IRound.h"
 
-class Helix : public Curve {
+class Helix : public Curve, public IRound {
 public:
     Helix(double r, double step, double turns = curve_cfg::DEFAULT_TURNS);
 

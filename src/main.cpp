@@ -6,6 +6,8 @@
 #include "shapes/Circle.h"
 #include "shapes/Ellipse.h"
 #include "shapes/Helix.h"
+#include "menu/Menu.h"
+#include "curve/IRound.h"
 
 #include <algorithm>
 #include <cmath>
@@ -49,12 +51,7 @@ static void drawTangent(const Curve& c, Color color)
     Vector3 dir = toRay(d);
 
     const float len = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-    if (len > 1e-6f)
-    {
-        dir.x /= len;
-        dir.y /= len;
-        dir.z /= len;
-    }
+    if (len > 1e-6f) { dir.x /= len; dir.y /= len; dir.z /= len; }
 
     Vector3 end{ pos.x + dir.x, pos.y + dir.y, pos.z + dir.z };
     DrawSphere(pos, 0.12f, color);
@@ -78,10 +75,8 @@ static void drawGridWithAxes(int halfCells, float cellSize, AxisLock active, int
         const float p = i * cellSize;
         DrawLine3D(Vector3{ -extent, p, corner }, Vector3{ extent, p, corner }, gridColor);
         DrawLine3D(Vector3{ p, -extent, corner }, Vector3{ p, extent, corner }, gridColor);
-
         DrawLine3D(Vector3{ -extent, corner, p }, Vector3{ extent, corner, p }, wallColor);
         DrawLine3D(Vector3{ p, corner, corner }, Vector3{ p, corner, extent }, wallColor);
-
         DrawLine3D(Vector3{ corner, -extent, p }, Vector3{ corner, extent, p }, wallColor);
         DrawLine3D(Vector3{ corner, p, corner }, Vector3{ corner, p, extent }, wallColor);
     }
@@ -105,13 +100,10 @@ struct OrbitCamera
 
     void reset()
     {
-        yaw = 45.0f;
-        pitch = 30.0f;
-        dist = DEFAULT_CAM_DIST;
+        yaw = 45.0f; pitch = 30.0f; dist = DEFAULT_CAM_DIST;
         target = Vector3{ 0.0f, 0.0f, 0.0f };
         recompute();
     }
-
     void init()
     {
         cam.up = Vector3{ 0.0f, 0.0f, 1.0f };
@@ -119,7 +111,6 @@ struct OrbitCamera
         cam.projection = CAMERA_PERSPECTIVE;
         reset();
     }
-
     void recompute()
     {
         if (pitch > 89.0f) pitch = 89.0f;
@@ -138,11 +129,9 @@ struct OrbitCamera
         cam.position = Vector3Add(target, offset);
         cam.target = target;
     }
-
     void update()
     {
         const bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-
         if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
         {
             const Vector2 d = GetMouseDelta();
@@ -164,7 +153,6 @@ struct OrbitCamera
                 pitch -= d.y * 0.4f;
             }
         }
-
         recompute();
     }
 };
@@ -228,30 +216,33 @@ static std::string describeSelected(const SceneItem* item)
     if (!item || !item->curve) return "None";
 
     if (item->kind == CurveKind::Circle)
-    {
         if (const auto* c = dynamic_cast<const Circle*>(item->curve.get()))
-        {
             return "Circle (r=" + std::to_string(c->radius()).substr(0, 4) + ")";
-        }
-    }
-    else if (item->kind == CurveKind::Ellipse)
-    {
+
+    if (item->kind == CurveKind::Ellipse)
         if (const auto* e = dynamic_cast<const Ellipse*>(item->curve.get()))
-        {
             return "Ellipse (rx=" + std::to_string(e->radiusX()).substr(0, 4) +
-                ", ry=" + std::to_string(e->radiusY()).substr(0, 4) + ")";
-        }
-    }
-    else if (item->kind == CurveKind::Helix)
-    {
+            ", ry=" + std::to_string(e->radiusY()).substr(0, 4) + ")";
+
+    if (item->kind == CurveKind::Helix)
         if (const auto* h = dynamic_cast<const Helix*>(item->curve.get()))
-        {
             return "Helix (r=" + std::to_string(h->radius()).substr(0, 4) +
-                ", step=" + std::to_string(h->step()).substr(0, 4) +
-                ", turns=" + std::to_string(h->turns()).substr(0, 3) + ")";
-        }
-    }
+            ", step=" + std::to_string(h->step()).substr(0, 4) +
+            ", turns=" + std::to_string(h->turns()).substr(0, 3) + ")";
+
     return "Curve";
+}
+
+static double totalRadius(const SceneManager& scene)
+{
+    double sum = 0.0;
+    for (const auto& item : scene.items())
+    {
+        if (!item.curve) continue;
+        if (const auto* r = dynamic_cast<const IRound*>(item.curve.get()))
+            sum += r->radius();
+    }
+    return sum;
 }
 
 int main()
@@ -273,42 +264,81 @@ int main()
     OrbitCamera orbit;
     orbit.init();
 
+    ui::MenuBar menu;
+    bool sceneChanged = false;
+    std::string status = "Ready";
+
+    int mFile = menu.addMenu("File");
+    menu.addItem(mFile, "Circle (r=4)", [&]() { scene.addCircle(4.0); sceneChanged = true; status = "Circle added"; }, "1");
+    menu.addItem(mFile, "Ellipse (5x3)", [&]() { scene.addEllipse(5.0, 3.0); sceneChanged = true; status = "Ellipse added"; }, "2");
+    menu.addItem(mFile, "Helix (r=4)", [&]() { scene.addHelix(4.0, 3.0, curve_cfg::DEFAULT_TURNS); sceneChanged = true; status = "Helix added"; }, "3");
+    menu.addItem(mFile, "-", nullptr);
+    menu.addItem(mFile, "Reset scene", [&]() {
+        while (!scene.items().empty()) scene.removeSelected();
+        scene.addCircle(4.0);
+        sceneChanged = true;
+        status = "Scene reset";
+        });
+    menu.addItem(mFile, "-", nullptr);
+    menu.addItem(mFile, "Exit", [&]() { CloseWindow(); }, "Esc");
+
+    int mEdit = menu.addMenu("Edit");
+    menu.addItem(mEdit, "Remove selected", [&]() { sceneChanged = scene.removeSelected(); status = "Removed"; }, "Del");
+    menu.addItem(mEdit, "Select next", [&]() { scene.selectNext(); status = "Next selected"; }, "Tab");
+    menu.addItem(mEdit, "-", nullptr);
+    menu.addItem(mEdit, "Parameter +", [&]() { adjustPrimaryParam(scene, 0.5);  sceneChanged = true; status = "Parameter +"; }, "]");
+    menu.addItem(mEdit, "Parameter -", [&]() { adjustPrimaryParam(scene, -0.5); sceneChanged = true; status = "Parameter -"; }, "[");
+    menu.addItem(mEdit, "Print t=PI/4", [&]() { sceneChanged = true; status = "Printed to console"; }, "P");
+
+    int mView = menu.addMenu("View");
+    menu.addItem(mView, "Reset camera and shape", [&]() {
+        orbit.reset();
+        if (SceneItem* sel = scene.selectedItem()) sel->transform.resetPose();
+        status = "Camera and shape reset";
+        }, "R");
+
+
+  
     while (!WindowShouldClose())
     {
-        bool sceneChanged = false;
+        menu.update();
+        bool menuOpen = menu.isOpen();
 
-        if (IsKeyPressed(KEY_ONE)) { scene.addCircle(4.0); sceneChanged = true; }
-        if (IsKeyPressed(KEY_TWO)) { scene.addEllipse(5.0, 3.0); sceneChanged = true; }
-        if (IsKeyPressed(KEY_THREE)) { scene.addHelix(4.0, 3.0, curve_cfg::DEFAULT_TURNS); sceneChanged = true; }
+        sceneChanged = false;
 
-        if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressed(KEY_DELETE)) { sceneChanged = scene.removeSelected(); }
-        if (IsKeyPressed(KEY_TAB)) scene.selectNext();
-
-        if (IsKeyPressed(KEY_LEFT_BRACKET)) { adjustPrimaryParam(scene, -0.5); sceneChanged = true; }
-        if (IsKeyPressed(KEY_RIGHT_BRACKET)) { adjustPrimaryParam(scene, 0.5); sceneChanged = true; }
-
-        if (IsKeyPressed(KEY_P)) sceneChanged = true;
-
-        if (sceneChanged)
+        if (!menuOpen)
         {
-            scene.printAllAt(curve_cfg::MATH_PI / 4.0);
-        }
+            if (IsKeyPressed(KEY_ONE)) { scene.addCircle(4.0); sceneChanged = true; status = "Circle added"; }
+            if (IsKeyPressed(KEY_TWO)) { scene.addEllipse(5.0, 3.0); sceneChanged = true; status = "Ellipse added"; }
+            if (IsKeyPressed(KEY_THREE)) { scene.addHelix(4.0, 3.0, curve_cfg::DEFAULT_TURNS); sceneChanged = true; status = "Helix added"; }
 
-        if (IsKeyPressed(KEY_R))
-        {
-            orbit.reset();
-            if (SceneItem* sel = scene.selectedItem())
+            if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressed(KEY_DELETE)) { sceneChanged = scene.removeSelected(); status = "Removed"; }
+            if (IsKeyPressed(KEY_TAB)) scene.selectNext();
+
+            if (IsKeyPressed(KEY_LEFT_BRACKET)) { adjustPrimaryParam(scene, -0.5); sceneChanged = true; status = "Parameter -"; }
+            if (IsKeyPressed(KEY_RIGHT_BRACKET)) { adjustPrimaryParam(scene, 0.5); sceneChanged = true; status = "Parameter +"; }
+
+            if (IsKeyPressed(KEY_P)) { sceneChanged = true; status = "Printed to console"; }
+
+            if (IsKeyPressed(KEY_R))
             {
-                sel->transform.resetPose();
+                orbit.reset();
+                if (SceneItem* sel = scene.selectedItem()) sel->transform.resetPose();
+                status = "Camera and shape reset";
             }
         }
 
+        if (sceneChanged) scene.printAllAt(curve_cfg::MATH_PI / 4.0);
+
         const AxisLock axis = updateAxisLock();
 
-        if (SceneItem* sel = scene.selectedItem())
+        if (!menuOpen)
         {
-            manipulator.update(sel->transform, orbit.cam, axis == AxisLock::None);
-            moveObjectByLockedAxis(sel->transform, axis, 0.03f);
+            if (SceneItem* sel = scene.selectedItem())
+            {
+                manipulator.update(sel->transform, orbit.cam, axis == AxisLock::None);
+                moveObjectByLockedAxis(sel->transform, axis, 0.03f);
+            }
         }
 
         manipulator.zoomCamera(orbit.cam, MIN_CAM_DIST, MAX_CAM_DIST);
@@ -331,9 +361,7 @@ int main()
 
             double turns = curve_cfg::DEFAULT_TURNS;
             if (const auto* h = dynamic_cast<const Helix*>(item.curve.get()))
-            {
                 turns = h->turns();
-            }
 
             const bool isSelected = (i == activeIdx);
             const Color lineCol = isSelected ? DARKBLUE : GRAY;
@@ -346,15 +374,7 @@ int main()
         }
 
         EndMode3D();
-
-        DrawRectangle(10, 10, 440, 118, Fade(LIGHTGRAY, 0.65f));
-        DrawText(TextFormat("Curves: %d | Active: %d", static_cast<int>(scene.items().size()), activeIdx + 1), 18, 16, 20, DARKGREEN);
-        DrawText(TextFormat("Selected: %s", describeSelected(scene.selectedItem()).c_str()), 18, 42, 18, DARKGRAY);
-        DrawText("[1]Circle  [2]Ellipse  [3]Helix  [Del]Remove  [Tab]Next", 18, 70, 16, DARKGRAY);
-        DrawText("[ / ] Param +/-   [P] Print t=PI/4   [R] Reset   [X/Y/Z+LMB] Axis", 18, 94, 16, DARKGRAY);
-
-        DrawText(TextFormat("Cam dist: %.1f / %.1f", orbit.dist, MAX_CAM_DIST), GetScreenWidth() - 210, 16, 18, GRAY);
-
+        menu.draw();
         EndDrawing();
     }
 

@@ -1,7 +1,8 @@
 #pragma once
 #include "curve/Curve.h"
+#include "curve/IRound.h"
 
-class Ellipse : public Curve {
+class Ellipse : public Curve, public IRound {
 public:
     explicit Ellipse(double rx, double ry);
 
@@ -10,6 +11,8 @@ public:
 
     double radiusX() const { return rx_; }
     double radiusY() const { return ry_; }
+    double radius() const override { return (rx_ + ry_) * 0.5; }
+
     void setRadii(double rx, double ry);
 
 private:
