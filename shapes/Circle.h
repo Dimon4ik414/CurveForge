@@ -1,7 +1,8 @@
 #pragma once
 #include "curve/Curve.h"
+#include "curve/IRound.h"
 
-class Circle : public Curve {
+class Circle : public Curve, public IRound {
 public:
     explicit Circle(double r);
 

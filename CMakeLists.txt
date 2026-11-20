@@ -24,6 +24,8 @@ add_executable(cadex_curves
     motion/MouseManipulator.cpp
     scene/SceneManager.cpp
     scene/SceneManager.h
+    menu/Menu.cpp 
+    menu/Menu.h
 )
 
 
